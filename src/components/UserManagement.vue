@@ -35,13 +35,13 @@
       </el-row>
     </el-row>
     <el-dialog v-model="dialogVisible" :showClose="false"  title="新建/编辑用户" style="height:580px;" width="30%">
-      <el-form>
+      <el-form :model="editForm" :rules="rules" ref="editForm">
         <el-row><span>姓名</span><span style="margin-left: 240px">性别</span></el-row>
         <el-row>
-          <el-form-item style="width: 210px">
+          <el-form-item prop="name" style="width: 210px">
             <el-input v-model="editForm.name"/>
           </el-form-item>
-          <el-form-item style="margin-left: 55px; width: 210px">
+          <el-form-item prop="sex" style="margin-left: 55px; width: 210px">
             <el-select v-model="editForm.sex">
               <el-option label="男" value="男"/>
               <el-option label="女" value="女"/>
@@ -50,18 +50,22 @@
         </el-row>
         <el-row style="margin-top: 20px"><span>联系电话</span><span style="margin-left: 210px">年龄</span></el-row>
         <el-row>
-          <el-form-item>
+          <el-form-item prop="phone">
             <el-input v-model="editForm.phone" style="width: 210px"/>
           </el-form-item>
-          <el-form-item style="margin-left: 55px; width: 210px">
+          <el-form-item prop="age" style="margin-left: 55px; width: 210px">
             <el-input v-model="editForm.age"/>
           </el-form-item>
         </el-row>
         <el-row style="margin-top: 40px"><span>详细地址</span></el-row>
-        <el-form-item>
-          <el-cascader style="width: 200px" size="large" :options="options" v-model="editForm.area"/>
-          <el-input v-model="editForm.address" placeholder="请输入详细地址" style="margin-left: 5px; width: 260px"/>
+        <el-row>
+        <el-form-item prop="area">
+          <el-cascader style="width: 200px;" size="large" :options="options" v-model="editForm.area"/>
         </el-form-item>
+        <el-form-item prop="address">
+          <el-input v-model="editForm.address" placeholder="请输入详细地址" style="margin-left: 5px; width: 270px"/>
+        </el-form-item>
+        </el-row>
       </el-form>
       <el-row style="float: right;margin-top: 160px">
         <el-button @click="close" size="small">取消</el-button>
@@ -81,7 +85,23 @@ import {regionData,CodeToText,TextToCode} from 'element-china-area-data'
 export default {
   name: 'UserManagement',
   data() {
+    const isNum = (rule, value, callback) => {
+      const age= /^[0-9]*$/
+      if (!age.test(value)) {
+        callback(new Error('年龄只能为数字'))
+      }else{
+        callback()
+      }
+    }
     return {
+      rules:{
+        name:[{required:true,message:'请输入姓名',trigger:'blur'}],
+        sex:[{required:true,message:'请选择性别',trigger:'blur'}],
+        phone:[{required:true,message:'请输入联系电话',trigger:'blur'},{validator: isNum, trigger: 'blur'}],
+        age:[{required:true,message:'请输入年龄',trigger:'blur'},{validator: isNum, trigger: 'blur'}],
+        area:[{required:true,message:'请选择地区',trigger:'blur'}],
+        address:[{required:true,message:'请输入详细地址',trigger:'blur'}]
+      },
       queryParams: {
         current: 1,
         size: 10
@@ -236,27 +256,33 @@ export default {
       return code
     },
     save() {
-      this.$confirm('是否提交?', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(() => {
-        let addOrEdit = 'add';
-        if (this.editStatus === true) {
-          addOrEdit = 'edit';
+      this.$refs['editForm'].validate((valid) => {
+        if (valid) {
+          this.$confirm('是否提交?', '提示', {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }).then(() => {
+            let addOrEdit = 'add';
+            if (this.editStatus === true) {
+              addOrEdit = 'edit';
+            }
+            this.editForm.area = this.translate(this.editForm.area) ;
+            axios.post(baseUrl + '/user/' + addOrEdit, this.editForm).then(async response => {
+              if (response.data.statusCode == 1) {
+                this.$message.success("保存成功");
+                this.editForm = {};
+                this.getList();
+                this.dialogVisible = false;
+              } else {
+                this.$message.error('保存失败');
+                this.dialogVisible = true;
+              }
+            })
+          });
+        } else {
+          return false;
         }
-        this.editForm.area = this.translate(this.editForm.area) ;
-        axios.post(baseUrl + '/user/' + addOrEdit, this.editForm).then(async response => {
-          if (response.data.statusCode == 1) {
-            this.$message.success("保存成功");
-            this.editForm = {};
-            this.getList();
-            this.dialogVisible = false;
-          } else {
-            this.$message.error('保存失败');
-            this.dialogVisible = true;
-          }
-        })
       });
     },
     handleSelectionChange(val) {
